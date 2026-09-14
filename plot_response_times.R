@@ -2,14 +2,20 @@
 # ---------------------------------------------------------------------------
 # Figure 4: response times per step, 5 replicates, by method
 #
-# CI: t-interval on log10(time), back-transformed -> CI around the geometric
-# mean. Errors here are multiplicative, groups are right-skewed by a slow first
-# replicate, and a raw-scale interval goes negative for Step 8 / Step 15 SQL,
-# which cannot be drawn on a log axis at all.
+# Summary: arithmetic mean +/- one standard deviation of the 5 replicates,
+# matching the values reported in the Results and in Supplementary Table 3.
+# A t-interval on the raw scale is NOT used: it goes negative for Step 8 and
+# Step 15 SQL and cannot be drawn on a log axis. mean +/- SD stays positive for
+# all 29 step x method series (smallest lower bound 0.0008 s, Step 8 SQL), so
+# the error bars are drawable; the stopifnot() in section 4 enforces this.
+#
+# The x axis remains log10-scaled: that is a display choice for data spanning
+# five orders of magnitude and is independent of the summary statistic. The
+# individual replicates are plotted alongside the summary so that the skew
+# within each series stays visible despite the symmetric error bar.
 #
 # Requires R >= 4.1 for the native |> pipe.
 # ---------------------------------------------------------------------------
-# 
 
 library(here,    warn.conflicts = FALSE)
 library(readxl,  warn.conflicts = FALSE)
@@ -45,14 +51,14 @@ long <- raw |>
 
 # Guard: as.numeric() above turns anything unparseable into NA silently (e.g. a
 # comma decimal separator), and the filter() would then drop replicates without
-# a word, shrinking n and biasing the CI. Fail loudly instead.
+# a word, shrinking n and biasing the summary. Fail loudly instead.
 n_expected <- nrow(raw) * 5
 if (nrow(long) != n_expected) {
   stop(sprintf("Expected %d replicate values, kept %d - check for non-numeric cells in the workbook.",
                n_expected, nrow(long)))
 }
 
-# ---- 2. short strip labels ("Stichpunkte") -----------------------------
+# ---- 2. short strip labels ("Stichpunkte") ---------------------------------
 # Step 1 vs 2 and Step 3 vs 4 share the same Action text (Upload / Load) and
 # are distinguished only by file, so the file is added by hand for those four
 # rows; every other label is a short form of its own Action text. Keeping this
@@ -92,25 +98,25 @@ dat <- long |>
     Step_lab = factor(Step_lab, levels = unique(Step_lab[order(Step_num)]))
   )
 
-# ---- 4. 95% CI around the geometric mean ------------------------------------
-ci <- dat |>
+# ---- 4. arithmetic mean +/- standard deviation ------------------------------
+summ <- dat |>
   dplyr::group_by(Step_num, Step_lab, Action, Method) |>
   dplyr::summarise(
-    n          = dplyr::n(),
-    m_log      = mean(log10(Time_s)),
-    se_log     = sd(log10(Time_s)) / sqrt(dplyr::n()),
-    tcrit      = qt(0.975, df = dplyr::n() - 1),
-    geo_mean   = 10^m_log,
-    lo         = 10^(m_log - tcrit * se_log),
-    hi         = 10^(m_log + tcrit * se_log),
-    arith_mean = mean(Time_s),
-    arith_lo   = mean(Time_s) - qt(0.975, dplyr::n() - 1) * sd(Time_s) / sqrt(dplyr::n()),
-    arith_hi   = mean(Time_s) + qt(0.975, dplyr::n() - 1) * sd(Time_s) / sqrt(dplyr::n()),
-    .groups    = "drop"
+    n       = dplyr::n(),
+    mean_s  = mean(Time_s),
+    sd_s    = sd(Time_s),
+    lo      = mean(Time_s) - sd(Time_s),
+    hi      = mean(Time_s) + sd(Time_s),
+    .groups = "drop"
   )
 
-print(as.data.frame(ci[, c("Step_num", "Method", "n", "geo_mean", "lo", "hi",
-                           "arith_mean", "arith_lo", "arith_hi")]), digits = 3)
+# A non-positive lower bound cannot be drawn on a log axis. This holds for the
+# current data; fail loudly rather than silently dropping an error bar if the
+# measurements are ever extended or replaced.
+stopifnot(all(summ$lo > 0))
+
+print(as.data.frame(summ[, c("Step_num", "Method", "n", "mean_s", "sd_s", "lo", "hi")]),
+      digits = 3)
 
 # ---- 5. colours (Okabe-Ito; colour-blind safe + greyscale safe) -------------
 # Wes Anderson alternative:
@@ -128,8 +134,8 @@ key <- dat |>
   dplyr::mutate(txt = sprintf("Step %d, %s (%s)", Step_num, Action, methods))
 
 caption_txt <- paste0(
-  "Individual replicate times (n = 5 per step and method, jittered points) with 95% confidence ",
-  "intervals around the geometric mean (t-interval on log10-transformed times, back-transformed). ",
+  "Individual replicate times (n = 5 per step and method, jittered points) with the ",
+  "arithmetic mean and error bars spanning one standard deviation. ",
   "One panel per step, covering all steps of the workflow; steps with a single access method show ",
   "one row per panel. The x axis is log10-scaled and shared across panels. Steps: ",
   paste(key$txt, collapse = "; "), "."
@@ -139,13 +145,13 @@ caption_txt <- paste0(
 writeLines(caption_txt, "Figure_caption.txt")
 
 # ---- 7. plot ----------------------------------------------------------------
-# Replicates sit in their own lane ABOVE the interval, the interval in a lane
-# below it. Where a CI is narrower than the plotting symbol (Step 1 Web spans
-# 0.013 log10 units, Step 12 SQL 0.030) the mean would otherwise sit on top of
-# all five points. position_nudge() accepts a vector, so the per-point jitter is
-# pre-computed here and added as a nudge - a plain position_jitter() cannot be
-# combined with a nudge, and a discrete y scale will not accept numeric values.
-PT_LANE <- 0.22; CI_LANE <- -0.22
+# Replicates sit in their own lane ABOVE the summary, the mean +/- SD in a lane
+# below it. Where an error bar is narrower than the plotting symbol (Step 1 Web,
+# Step 12 SQL) the mean would otherwise sit on top of all five points.
+# position_nudge() accepts a vector, so the per-point jitter is pre-computed
+# here and added as a nudge - a plain position_jitter() cannot be combined with
+# a nudge, and a discrete y scale will not accept numeric values.
+PT_LANE <- 0.22; SUMM_LANE <- -0.22
 set.seed(42)
 dat$ynudge <- PT_LANE + runif(nrow(dat), -0.115, 0.115)
 
@@ -155,21 +161,22 @@ p <- ggplot2::ggplot(dat, ggplot2::aes(x = Time_s, y = Method, colour = Method))
     size = 1.8, alpha = 0.5, shape = 16
   ) +
   ggplot2::geom_linerange(
-    data = ci,
+    data = summ,
     ggplot2::aes(xmin = lo, xmax = hi, y = Method, colour = Method),
     inherit.aes = FALSE, linewidth = 1.3,
-    position = ggplot2::position_nudge(y = CI_LANE)
+    position = ggplot2::position_nudge(y = SUMM_LANE)
   ) +
   ggplot2::geom_point(
-    data = ci,
-    ggplot2::aes(x = geo_mean, y = Method, colour = Method),
+    data = summ,
+    ggplot2::aes(x = mean_s, y = Method, colour = Method),
     inherit.aes = FALSE, shape = 23, size = 2.7, stroke = 1.2,
     fill = scales::alpha("white", 0.35),   # hollow: never hides a replicate
-    position = ggplot2::position_nudge(y = CI_LANE)
+    position = ggplot2::position_nudge(y = SUMM_LANE)
   ) +
   ggplot2::facet_grid(Step_lab ~ ., scales = "free_y", space = "free_y", switch = "y") +
   ggplot2::scale_x_log10(
-    breaks = 10^(-3:3),
+    # extended to 10^-4: the Step 8 SQL lower bound (0.0008 s) falls below 10^-3
+    breaks = 10^(-4:3),
     labels = scales::trans_format("log10", scales::math_format(10^.x)),
     minor_breaks = NULL          # ticks and gridlines only at the powers of 10
   ) +
