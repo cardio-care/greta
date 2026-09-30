@@ -14,7 +14,6 @@ itself, which is built on commercial software and holds controlled-access data.
 
 ```
 scripts/    R scripts for the manuscript figures and analyses
-.here       anchor for here::here() path resolution
 ```
 
 | Script | Purpose |
@@ -24,7 +23,7 @@ scripts/    R scripts for the manuscript figures and analyses
 
 ## Requirements
 
-R ≥ 4.1 (the native `|>` pipe is used) and the following packages:
+R ≥ 4.1 and the following packages:
 
 ```r
 utils::install.packages(c("here", "readxl", "dplyr", "tidyr",
@@ -65,31 +64,10 @@ loaded via a namespace (and not attached):
 [21] tools_4.5.1        withr_3.0.2        gtable_0.3.6
 ```
 
-## Usage
-
-Clone the repository and open it as an RStudio project, or set the working
-directory to the repository root. Paths are resolved from the project root by
-`here::here()`, so no path editing is required.
-
-```r
-source("scripts/plot_response_times.R")
-source("scripts/plot_warmup_effect.R")
-```
-
-Both scripts read the response-time workbook
-`Supplementary_Table_2_reactivity_times_replicates_20260727_V01D07.xlsx` from
-`data/` and write their figure as PNG and PDF to `writing/floats/`.
-`plot_response_times.R` also writes the figure caption to
-`writing/floats/Figure_caption.txt`. Both directories are excluded from version
-control.
-
 ## Data availability
 
-The input data are not included in this repository. The response-time
-measurements underlying the figures are available as additional files
-accompanying the manuscript. The Hamburg City Health Study whole-genome
-sequencing data underlying GRETA are not publicly available, due to data
-protection regulations.
+The response-time measurements underlying the figures are available as additional files
+accompanying the manuscript.
 
 ## Citation
 
