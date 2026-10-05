@@ -73,9 +73,7 @@ accompanying the manuscript.
 
 If you use this code, please cite the accompanying manuscript:
 
-> Riccio C, Dhabalia Ashok A, Guo L, Koliopanos G, Zeller T, Twerenbold R,
-> Ziegler A. GRETA: a results database for whole-genome sequencing studies.
-> *[Journal]*. [Year];[Volume]:[Pages]. doi:[DOI]
+Riccio, C., Ashok, A.D., Guo, L. et al. GRETA: a results database for whole-genome sequencing studies. BMC Bioinformatics (2026). https://doi.org/10.1186/s12859-026-06688-6
 
 ## Licence
 
