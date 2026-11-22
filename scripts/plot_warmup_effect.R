@@ -17,15 +17,14 @@
 # Requires patchwork for the two-panel layout (install.packages("patchwork")).
 # To avoid that dependency, save pA and pB separately with ggplot2::ggsave().
 #
-# Paths are resolved from the project root by here::here(), so the script runs
-# unchanged from any working directory and on any machine.
+# Paths are hard-coded to the GRETA project folder on the author's machine;
+# edit project_dir below to run the script elsewhere.
 #
 # Style: add-on package functions are called as package::function().
 # Requires R >= 4.1 for the native |> pipe.
 # ---------------------------------------------------------------------------
 
-library(here,      warn.conflicts = FALSE)
-library(readxl,    warn.conflicts = FALSE)
+library(readxl,   warn.conflicts = FALSE)
 library(dplyr,     warn.conflicts = FALSE)
 library(tidyr,     warn.conflicts = FALSE)
 library(ggplot2,   warn.conflicts = FALSE)
@@ -33,20 +32,22 @@ library(scales,    warn.conflicts = FALSE)
 library(patchwork, warn.conflicts = FALSE)
 
 # ---- 0. paths and constants ------------------------------------------------
-data_dir <- here::here("data")
-out_dir  <- here::here("writing", "floats")
+project_dir <- "C:/Users/riccricc/OneDrive - Hochgebirgsklinik Davos/Documents/project/GRETA"
+data_dir    <- file.path(project_dir, "writing", "floats")
+out_dir     <- file.path(project_dir, "writing", "floats")
 
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
+# Same replicate data as Supplementary Material 9 (12859_2026_6688_MOESM9_ESM.xlsx)
 infile  <- file.path(
   data_dir,
-  "Supplementary_Table_2_reactivity_times_replicates_20260727_V01D07.xlsx"
+  "Supplementary_Table_3_reactivity_times_replicates_20260727_V01D07.xlsx"
 )
-outstem <- file.path(out_dir, "Supplementary_Figure_1_warm_up_effect")
+outstem <- file.path(out_dir, "12859_2026_6688_MOESM7_ESM_CR")
 
 if (!file.exists(infile)) {
   stop("Input file not found: ", infile,
-       "\nCheck data_dir, or that here::here() resolves to the project root.")
+       "\nCheck project_dir and the file name.")
 }
 
 METHODS    <- c("Web", "CLI", "GUI", "SQL")
@@ -152,10 +153,17 @@ pA <- ggplot2::ggplot(long, ggplot2::aes(x = xjit, y = ratio)) +
     colour = "black", fill = "white"
   ) +
   ggplot2::scale_x_continuous(breaks = 1:5) +
-  ggplot2::scale_y_log10(breaks = c(0.3, 0.5, 1, 2, 3, 5),
+  ggplot2::scale_y_log10(breaks = c(0.3, 0.5, 1, 2, 3, 4, 5),
                          labels = function(x) paste0(x, "\u00d7"),
                          minor_breaks = NULL) +
   ggplot2::scale_colour_manual(values = pal, breaks = METHODS, drop = FALSE) +
+  # Points are drawn semi-transparent (alpha = 0.7, smaller size) in this panel
+  # but opaque in panel B, so the two legends differ and patchwork's
+  # guides = "collect" cannot merge them. Draw the legend keys opaque and at
+  # panel B's size so a single, fully saturated legend is shown.
+  ggplot2::guides(colour = ggplot2::guide_legend(
+    override.aes = list(alpha = 1, size = 1.9)
+  )) +
   ggplot2::labs(x = "Replicate", y = "Time relative to steady state (replicates 2-5)",
                 colour = "Method", title = "A   All replicates") +
   ggplot2::theme_bw(base_size = 11) +
@@ -181,6 +189,9 @@ pB <- ggplot2::ggplot(r1, ggplot2::aes(x = ratio, y = Series, colour = Method)) 
   ) +
   ggplot2::scale_y_discrete(labels = step_labels) +
   ggplot2::scale_colour_manual(values = pal, breaks = METHODS, drop = FALSE) +
+  # Legend is taken from panel A only; suppressing it here guarantees that the
+  # combined figure shows exactly one "Method" legend.
+  ggplot2::guides(colour = "none") +
   ggplot2::labs(x = "Replicate 1 relative to steady state", y = NULL,
                 colour = "Method", title = "B   Replicate 1") +
   ggplot2::theme_bw(base_size = 11) +
